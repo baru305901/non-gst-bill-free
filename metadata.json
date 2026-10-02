@@ -1,0 +1,6 @@
+{
+  "name": "Non-GST Invoice & Bill Generator",
+  "description": "Fast, professional Non-GST invoice and bill of supply generator for small businesses and freelancers with live A4 preview and print.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
