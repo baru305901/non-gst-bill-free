@@ -6,7 +6,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { InvoiceData } from './types/invoice';
 import {
-  createBlankInvoice,
   defaultFreelancerInvoice,
   sampleRetailInvoice,
   sampleFreelanceWriterInvoice,
@@ -31,70 +30,40 @@ import {
 const STORAGE_KEY_BUSINESS = 'non_gst_business_profile_v1';
 const STORAGE_KEY_INVOICE = 'non_gst_active_invoice_v1';
 
-// Helper to check and purge stale demo data from previous sessions
-const isStaleDemoData = (raw: string | null): boolean => {
-  if (!raw) return false;
-  return (
-    raw.includes('Apex Creative Studio') ||
-    raw.includes('Baru (Manish') ||
-    raw.includes('Manish Kumar') ||
-    raw.includes('rahul@apexcreatives') ||
-    raw.includes('Manish@apexcreatives') ||
-    raw.includes('manishkumar@okhdfcbank')
-  );
-};
-
 export default function App() {
-  // Load initial data from localStorage if available, otherwise initialize with clean blank template
+  // Load initial data from localStorage if available, otherwise use defaultFreelancerInvoice
   const [invoiceData, setInvoiceData] = useState<InvoiceData>(() => {
     try {
-      const rawInvoice = localStorage.getItem(STORAGE_KEY_INVOICE);
-      const rawBusiness = localStorage.getItem(STORAGE_KEY_BUSINESS);
-
-      // Purge stale cached demo strings if found
-      if (isStaleDemoData(rawInvoice)) {
-        localStorage.removeItem(STORAGE_KEY_INVOICE);
-      }
-      if (isStaleDemoData(rawBusiness)) {
-        localStorage.removeItem(STORAGE_KEY_BUSINESS);
-      }
-
-      const savedInvoice = !isStaleDemoData(rawInvoice) ? rawInvoice : null;
-      const savedBusiness = !isStaleDemoData(rawBusiness) ? rawBusiness : null;
-
-      const blank = createBlankInvoice('INV-001');
-
+      const savedInvoice = localStorage.getItem(STORAGE_KEY_INVOICE);
       if (savedInvoice) {
         const parsed = JSON.parse(savedInvoice);
         return {
-          ...blank,
           ...parsed,
           business: {
-            ...blank.business,
-            ...(savedBusiness ? JSON.parse(savedBusiness) : {}),
+            ...defaultFreelancerInvoice.business,
             ...parsed.business,
-            contactNumber: (parsed.business?.contactNumber || '').replace(/\D/g, '').slice(0, 10),
-            panNumber: parsed.business?.panNumber || '',
-            udyamNumber: parsed.business?.udyamNumber || '',
-            upiPayeeName: parsed.business?.upiPayeeName || parsed.business?.businessName || '',
+            contactNumber: (parsed.business?.contactNumber || '').replace(/\D/g, '').slice(0, 10) || defaultFreelancerInvoice.business.contactNumber,
+            panNumber: parsed.business?.panNumber || (parsed.business?.panOrId?.startsWith('PAN:') ? parsed.business.panOrId.replace('PAN:', '').trim() : ''),
+            udyamNumber: parsed.business?.udyamNumber || (parsed.business?.panOrId?.includes('UDYAM') ? parsed.business.panOrId.replace('Udyam:', '').trim() : ''),
+            upiPayeeName: parsed.business?.upiPayeeName || parsed.business?.businessName || parsed.business?.ownerName || '',
           },
           meta: {
-            ...blank.meta,
+            ...defaultFreelancerInvoice.meta,
             ...parsed.meta,
             paymentMode: parsed.meta?.paymentMode || 'both',
             showPaymentDetails: parsed.meta?.showPaymentDetails ?? true,
           },
         };
       }
-
+      const savedBusiness = localStorage.getItem(STORAGE_KEY_BUSINESS);
       if (savedBusiness) {
         const parsedBiz = JSON.parse(savedBusiness);
         return {
-          ...blank,
+          ...defaultFreelancerInvoice,
           business: {
-            ...blank.business,
+            ...defaultFreelancerInvoice.business,
             ...parsedBiz,
-            contactNumber: (parsedBiz.contactNumber || '').replace(/\D/g, '').slice(0, 10),
+            contactNumber: (parsedBiz.contactNumber || '').replace(/\D/g, '').slice(0, 10) || defaultFreelancerInvoice.business.contactNumber,
             panNumber: parsedBiz.panNumber || '',
             udyamNumber: parsedBiz.udyamNumber || '',
             upiPayeeName: parsedBiz.upiPayeeName || parsedBiz.businessName || '',
@@ -104,8 +73,7 @@ export default function App() {
     } catch (e) {
       console.error('Failed to load local storage:', e);
     }
-
-    return createBlankInvoice('INV-001');
+    return defaultFreelancerInvoice;
   });
 
   // UI States
@@ -117,14 +85,10 @@ export default function App() {
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-sync invoice state and business profile to localStorage on every change
+  // Auto-save invoice state to localStorage on changes
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_INVOICE, JSON.stringify(invoiceData));
-      // Immediately sync user's business profile so manual edits persist across refresh
-      if (invoiceData.business) {
-        localStorage.setItem(STORAGE_KEY_BUSINESS, JSON.stringify(invoiceData.business));
-      }
     } catch (err) {
       console.error('Error saving active invoice:', err);
     }
@@ -146,7 +110,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleAutoFit);
   }, []);
 
-  // Save Business Profile to localStorage explicitly
+  // Save Business Profile to localStorage
   const handleSaveBusinessProfile = () => {
     try {
       localStorage.setItem(STORAGE_KEY_BUSINESS, JSON.stringify(invoiceData.business));
@@ -173,50 +137,44 @@ export default function App() {
     }
 
     if (fullReset) {
-      // Full reset: completely blank fields, no demo names
-      const blankInvoice = createBlankInvoice('INV-001');
-      setInvoiceData(blankInvoice);
-      localStorage.setItem(STORAGE_KEY_INVOICE, JSON.stringify(blankInvoice));
-      localStorage.setItem(STORAGE_KEY_BUSINESS, JSON.stringify(blankInvoice.business));
+      setInvoiceData({
+        ...defaultFreelancerInvoice,
+        meta: {
+          ...defaultFreelancerInvoice.meta,
+          invoiceNumber: 'INV-001',
+          invoiceDate: today,
+        },
+      });
       return;
     }
 
-    // Keep user's current business profile intact; only wipe client information & items
-    setInvoiceData((prev) => {
-      const nextInv: InvoiceData = {
-        ...prev,
-        business: {
-          ...prev.business, // Preserves the user's business profile!
+    // Keep business info & settings, reset client details & items
+    setInvoiceData((prev) => ({
+      ...prev,
+      client: {
+        clientName: '',
+        contactPerson: '',
+        phone: '',
+        email: '',
+        address: '',
+      },
+      items: [
+        {
+          id: Date.now().toString(),
+          description: '',
+          quantity: 1,
+          rate: 0,
+          unit: 'pcs',
         },
-        client: {
-          clientName: '',
-          contactPerson: '',
-          phone: '',
-          email: '',
-          address: '',
-        },
-        items: [
-          {
-            id: Date.now().toString(),
-            description: '',
-            quantity: 1,
-            rate: 0,
-            unit: 'pcs',
-          },
-        ],
-        meta: {
-          ...prev.meta,
-          invoiceNumber: nextInvoiceNumber,
-          invoiceDate: today,
-          discountValue: 0,
-          additionalChargesAmount: 0,
-        },
-      };
-
-      localStorage.setItem(STORAGE_KEY_INVOICE, JSON.stringify(nextInv));
-      localStorage.setItem(STORAGE_KEY_BUSINESS, JSON.stringify(prev.business));
-      return nextInv;
-    });
+      ],
+      meta: {
+        ...prev.meta,
+        invoiceNumber: nextInvoiceNumber,
+        invoiceDate: today,
+        discountValue: 0,
+        additionalChargesAmount: 0,
+      },
+    }));
   };
 
   // Load Preset
@@ -226,8 +184,7 @@ export default function App() {
     } else if (preset === 'writer') {
       setInvoiceData(sampleFreelanceWriterInvoice);
     } else {
-      // Freelance Tech clean template
-      setInvoiceData(createBlankInvoice(invoiceData.meta.invoiceNumber || 'INV-001'));
+      setInvoiceData(defaultFreelancerInvoice);
     }
   };
 
@@ -493,7 +450,7 @@ Thank you for your business!`;
                   Clear Client &amp; Items (Keep Business Profile)
                 </p>
                 <p className="text-[11px] text-indigo-700 mt-0.5">
-                  Increments invoice number, clears client details and item list. Your shop name, address, and bank details stay intact.
+                  Increments invoice number, clears client details and item list. Your shop name, logo and bank details stay intact.
                 </p>
               </button>
 
@@ -506,7 +463,7 @@ Thank you for your business!`;
                   Full Reset (Clear Everything to Default)
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Restores a completely blank template without any previous details.
+                  Restores default template sample data.
                 </p>
               </button>
             </div>
