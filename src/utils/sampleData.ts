@@ -9,7 +9,7 @@ const formattedDue = due.toISOString().split('T')[0];
 export const defaultFreelancerInvoice: InvoiceData = {
   business: {
     businessName: 'Apex Creative Studio',
-    ownerName: 'Rahul Sharma',
+    ownerName: 'Manish Kumar',
     contactNumber: '9876543210',
     email: 'rahul@apexcreatives.in',
     address: 'Flat 402, Green Glen Heights, Bellandur, Bengaluru, Karnataka - 560103',
@@ -18,7 +18,7 @@ export const defaultFreelancerInvoice: InvoiceData = {
     upiId: 'rahulsharma@okhdfcbank',
     upiPayeeName: 'Apex Creative Studio',
     bankName: 'HDFC Bank Ltd.',
-    accountHolderName: 'Apex Creative Studio (Rahul Sharma)',
+    accountHolderName: 'Baru (Manish Kumar)',
     accountNumber: '50200034892109',
     ifscCode: 'HDFC0001234',
     branchName: 'Koramangala 4th Block, Bengaluru',

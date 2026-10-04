@@ -309,7 +309,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="text"
                 value={data.business.businessName}
                 onChange={(e) => updateBusiness('businessName', e.target.value)}
-                placeholder="e.g. Apex Creative Studio"
+                placeholder="e.g. Manish Kumar Bearwar"
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
               />
             </div>
@@ -322,7 +322,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="text"
                 value={data.business.ownerName}
                 onChange={(e) => updateBusiness('ownerName', e.target.value)}
-                placeholder="e.g. Rahul Sharma"
+                placeholder="e.g. Manish Kumar"
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
               />
             </div>
@@ -1141,7 +1141,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                         type="text"
                         value={data.business.upiId}
                         onChange={(e) => updateBusiness('upiId', e.target.value.trim())}
-                        placeholder="e.g. rahulsharma@okhdfcbank or 9876543210@paytm"
+                        placeholder="e.g. Manish kumar@okhdfcbank or 9876543210@paytm"
                         className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-mono"
                       />
                       <p className="text-[10px] text-slate-500 mt-1">
@@ -1214,7 +1214,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                         type="text"
                         value={data.business.accountHolderName}
                         onChange={(e) => updateBusiness('accountHolderName', e.target.value)}
-                        placeholder="e.g. Apex Creative Studio"
+                        placeholder="e.g. Manish Kumar Beawar"
                         className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                       />
                     </div>
