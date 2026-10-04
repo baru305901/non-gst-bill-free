@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { InvoiceData, LineItem, PaymentMode } from '../types/invoice';
 import { calculateInvoiceTotals, formatINR } from '../utils/calculations';
 import {
@@ -14,6 +14,7 @@ import {
   Sparkles,
   Save,
   CheckCircle2,
+  AlertCircle,
   Palette,
   QrCode,
   Landmark,
@@ -96,7 +97,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
   const removeItem = (index: number) => {
     if (data.items.length <= 1) {
-      // Keep at least one empty item
       onChange({
         ...data,
         items: [{ id: Date.now().toString(), description: '', quantity: 1, rate: 0, unit: 'pcs' }],
@@ -110,13 +110,44 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     });
   };
 
+  // Phone input handler (strip non-digits, max 10 digits)
+  const handlePhoneChange = (val: string) => {
+    const numericOnly = val.replace(/\D/g, '').slice(0, 10);
+    updateBusiness('contactNumber', numericOnly);
+  };
+
+  const handleClientPhoneChange = (val: string) => {
+    const numericOnly = val.replace(/\D/g, '').slice(0, 10);
+    updateClient('phone', numericOnly);
+  };
+
+  // PAN input handler: Auto uppercase, alphanumeric only, max 10 characters
+  const handlePanChange = (val: string) => {
+    const formatted = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    updateBusiness('panNumber', formatted);
+  };
+
+  // Udyam input handler: Auto uppercase, trim
+  const handleUdyamChange = (val: string) => {
+    const formatted = val.toUpperCase().trim();
+    updateBusiness('udyamNumber', formatted);
+  };
+
+  // PAN validation regex: 5 uppercase letters, 4 digits, 1 uppercase letter
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+  const isPanValid = !data.business.panNumber || panRegex.test(data.business.panNumber);
+  const isPanComplete = Boolean(data.business.panNumber && data.business.panNumber.length === 10);
+
+  // Udyam validation regex: UDYAM-XX-00-0000000 (loose check allowing standard formats)
+  const udyamRegex = /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/;
+  const isUdyamFormatted = !data.business.udyamNumber || udyamRegex.test(data.business.udyamNumber);
+
   // Payment Mode Logic & Master Switch
   const currentPaymentMode: PaymentMode = data.meta.paymentMode || 'both';
   const isMasterToggleOn = data.meta.showPaymentDetails !== false && currentPaymentMode !== 'cash';
 
   const handleToggleMasterSwitch = () => {
     if (isMasterToggleOn) {
-      // Turn OFF
       onChange({
         ...data,
         meta: {
@@ -125,7 +156,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         },
       });
     } else {
-      // Turn ON: restore previous mode or default to 'both'
       const restoredMode = currentPaymentMode === 'cash' ? 'both' : currentPaymentMode;
       onChange({
         ...data,
@@ -228,7 +258,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 onClick={() => onLoadPreset('retail')}
                 className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 rounded-md transition-colors text-slate-700"
               >
-                Retail & Spares
+                Retail &amp; Spares
               </button>
               <button
                 type="button"
@@ -298,18 +328,40 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Contact Details with fixed +91 prefix and 10 digits validation */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Contact Phone / WhatsApp <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={data.business.contactNumber}
-                onChange={(e) => updateBusiness('contactNumber', e.target.value)}
-                placeholder="+91 98765 43210"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  Contact Phone / WhatsApp <span className="text-rose-500">*</span>
+                </label>
+                {data.business.contactNumber && (
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      data.business.contactNumber.length === 10
+                        ? 'text-emerald-600'
+                        : 'text-amber-600'
+                    }`}
+                  >
+                    {data.business.contactNumber.length === 10
+                      ? '✓ 10 digits'
+                      : `${10 - data.business.contactNumber.length} digits left`}
+                  </span>
+                )}
+              </div>
+              <div className="flex rounded-lg shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold text-xs select-none">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={data.business.contactNumber}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="9876543210"
+                  className="w-full px-3 py-2 text-xs rounded-r-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/40 font-mono tracking-wide"
+                />
+              </div>
             </div>
 
             <div>
@@ -324,18 +376,79 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
               />
             </div>
+          </div>
 
+          {/* Separate PAN Number and MSME / Udyam Registration Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+            {/* PAN Number Field with Regex Validation */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                PAN or MSME/Udyam Reg (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  PAN Number (Optional)
+                </label>
+                {data.business.panNumber && (
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      isPanComplete && panRegex.test(data.business.panNumber)
+                        ? 'text-emerald-600'
+                        : 'text-amber-600'
+                    }`}
+                  >
+                    {isPanComplete
+                      ? panRegex.test(data.business.panNumber)
+                        ? '✓ Valid PAN format'
+                        : '✗ Invalid format'
+                      : `${10 - (data.business.panNumber?.length || 0)} chars left`}
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
-                value={data.business.panOrId || ''}
-                onChange={(e) => updateBusiness('panOrId', e.target.value)}
-                placeholder="e.g. PAN: ABCDE1234F"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
+                maxLength={10}
+                value={data.business.panNumber || ''}
+                onChange={(e) => handlePanChange(e.target.value)}
+                placeholder="e.g. ABCDE1234F"
+                className={`w-full px-3 py-2 text-xs rounded-lg border font-mono uppercase tracking-wider ${
+                  data.business.panNumber && (!isPanComplete || !panRegex.test(data.business.panNumber))
+                    ? 'border-amber-400 focus:ring-amber-500 bg-amber-50/20'
+                    : 'border-slate-300 focus:ring-indigo-500 bg-slate-50/40'
+                }`}
               />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Format: 5 letters, 4 numbers, 1 letter (10 alphanumeric chars)
+              </p>
+            </div>
+
+            {/* MSME / Udyam Registration No. */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">
+                  MSME / Udyam Registration No. (Optional)
+                </label>
+                {data.business.udyamNumber && (
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      udyamRegex.test(data.business.udyamNumber)
+                        ? 'text-emerald-600'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {udyamRegex.test(data.business.udyamNumber)
+                      ? '✓ Standard Udyam'
+                      : 'Entered'}
+                  </span>
+                )}
+              </div>
+              <input
+                type="text"
+                value={data.business.udyamNumber || ''}
+                onChange={(e) => handleUdyamChange(e.target.value)}
+                placeholder="e.g. UDYAM-DL-01-0012345"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/40 font-mono uppercase"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Standard format: UDYAM-XX-00-0000000
+              </p>
             </div>
           </div>
 
@@ -448,7 +561,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">2. Client & Invoice Info</h2>
+            <h2 className="text-sm font-bold text-slate-900">2. Client &amp; Invoice Info</h2>
           </div>
         </div>
 
@@ -537,13 +650,19 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Client Phone / Mobile
               </label>
-              <input
-                type="text"
-                value={data.client.phone}
-                onChange={(e) => updateClient('phone', e.target.value)}
-                placeholder="+91 98000 00000"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/40"
-              />
+              <div className="flex rounded-lg shadow-2xs">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold text-xs select-none">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={data.client.phone}
+                  onChange={(e) => handleClientPhoneChange(e.target.value)}
+                  placeholder="9800000000"
+                  className="w-full px-3 py-2 text-xs rounded-r-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50/40 font-mono tracking-wide"
+                />
+              </div>
             </div>
 
             <div>
@@ -580,7 +699,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">3. Items & Services (No GST)</h2>
+            <h2 className="text-sm font-bold text-slate-900">3. Items &amp; Services (No GST)</h2>
           </div>
           <span className="text-xs text-slate-500 font-medium">
             {data.items.length} {data.items.length === 1 ? 'item' : 'items'}
@@ -694,7 +813,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Percent className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">4. Discounts & Adjustments</h2>
+            <h2 className="text-sm font-bold text-slate-900">4. Discounts &amp; Adjustments</h2>
           </div>
         </div>
 
@@ -702,7 +821,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Discount Type & Value
+                Discount Type &amp; Value
               </label>
               <div className="flex gap-2">
                 <select
@@ -1012,20 +1131,40 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     </label>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      UPI ID (VPA) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={data.business.upiId}
-                      onChange={(e) => updateBusiness('upiId', e.target.value)}
-                      placeholder="e.g. rahulsharma@okhdfcbank or 9876543210@paytm"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                    />
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Customers will scan this QR to pay directly into your account using PhonePe, Google Pay, or Paytm.
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Dedicated UPI ID (VPA) Field */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        UPI ID (VPA) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.business.upiId}
+                        onChange={(e) => updateBusiness('upiId', e.target.value.trim())}
+                        placeholder="e.g. rahulsharma@okhdfcbank or 9876543210@paytm"
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white font-mono"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Required to render the scannable UPI QR code on the bill
+                      </p>
+                    </div>
+
+                    {/* Dedicated Payee Name Field */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Payee Name (as registered with UPI / Bank)
+                      </label>
+                      <input
+                        type="text"
+                        value={data.business.upiPayeeName || ''}
+                        onChange={(e) => updateBusiness('upiPayeeName', e.target.value)}
+                        placeholder={data.business.businessName || data.business.ownerName || 'Merchant Name'}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                      />
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Displays in client's GPay/PhonePe when scanning
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1133,7 +1272,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Palette className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">6. Notes, Terms & Styling</h2>
+            <h2 className="text-sm font-bold text-slate-900">6. Notes, Terms &amp; Styling</h2>
           </div>
         </div>
 
@@ -1194,7 +1333,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Terms & Conditions (Editable)
+              Terms &amp; Conditions (Editable)
             </label>
             <textarea
               rows={3}

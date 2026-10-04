@@ -9,14 +9,17 @@ export interface LineItem {
 export interface BusinessDetails {
   businessName: string;
   ownerName: string;
-  contactNumber: string;
+  contactNumber: string; // 10-digit primary mobile/phone
   email: string;
   address: string;
-  panOrId?: string; // Optional PAN or MSME/Udyam Reg for small businesses
+  panNumber?: string; // 10-character PAN: [A-Z]{5}[0-9]{4}[A-Z]{1}
+  udyamNumber?: string; // MSME / Udyam Registration No.
+  panOrId?: string; // legacy fallback
   logoBase64?: string;
   signatureBase64?: string;
   // Payment info
   upiId: string;
+  upiPayeeName?: string; // Dedicated UPI Payee Name
   bankName: string;
   accountHolderName: string;
   accountNumber: string;
@@ -27,7 +30,7 @@ export interface BusinessDetails {
 export interface ClientDetails {
   clientName: string;
   contactPerson?: string;
-  phone: string;
+  phone: string; // 10-digit or phone
   email?: string;
   address: string;
   cityPincode?: string;

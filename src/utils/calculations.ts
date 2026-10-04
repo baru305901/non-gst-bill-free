@@ -60,24 +60,19 @@ export function formatINR(val: number): string {
   }).format(val);
 }
 
+/**
+ * Generates standard UPI payment link:
+ * upi://pay?pa={UPI_ID}&pn={PAYEE_NAME}&am={TOTAL_AMOUNT}&cu=INR
+ */
 export function buildUpiPaymentLink(
   upiId: string,
   payeeName: string,
-  amount: number,
-  invoiceNo: string
+  amount: number
 ): string {
   if (!upiId || !upiId.trim()) return '';
   const cleanUpi = upiId.trim();
   const cleanName = encodeURIComponent((payeeName || 'Merchant').trim());
-  const formattedAmount = amount > 0 ? amount.toFixed(2) : '';
-  const note = encodeURIComponent(`Bill ${invoiceNo || ''}`.trim());
+  const formattedAmount = amount > 0 ? amount.toFixed(2) : '0.00';
 
-  let link = `upi://pay?pa=${cleanUpi}&pn=${cleanName}&cu=INR`;
-  if (formattedAmount) {
-    link += `&am=${formattedAmount}`;
-  }
-  if (note) {
-    link += `&tn=${note}`;
-  }
-  return link;
+  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${formattedAmount}&cu=INR`;
 }

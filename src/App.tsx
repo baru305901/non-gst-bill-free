@@ -15,7 +15,6 @@ import { InvoiceForm } from './components/InvoiceForm';
 import { InvoicePreview } from './components/InvoicePreview';
 import {
   Printer,
-  Download,
   RotateCcw,
   Save,
   ZoomIn,
@@ -40,6 +39,14 @@ export default function App() {
         const parsed = JSON.parse(savedInvoice);
         return {
           ...parsed,
+          business: {
+            ...defaultFreelancerInvoice.business,
+            ...parsed.business,
+            contactNumber: (parsed.business?.contactNumber || '').replace(/\D/g, '').slice(0, 10) || defaultFreelancerInvoice.business.contactNumber,
+            panNumber: parsed.business?.panNumber || (parsed.business?.panOrId?.startsWith('PAN:') ? parsed.business.panOrId.replace('PAN:', '').trim() : ''),
+            udyamNumber: parsed.business?.udyamNumber || (parsed.business?.panOrId?.includes('UDYAM') ? parsed.business.panOrId.replace('Udyam:', '').trim() : ''),
+            upiPayeeName: parsed.business?.upiPayeeName || parsed.business?.businessName || parsed.business?.ownerName || '',
+          },
           meta: {
             ...defaultFreelancerInvoice.meta,
             ...parsed.meta,
@@ -50,9 +57,17 @@ export default function App() {
       }
       const savedBusiness = localStorage.getItem(STORAGE_KEY_BUSINESS);
       if (savedBusiness) {
+        const parsedBiz = JSON.parse(savedBusiness);
         return {
           ...defaultFreelancerInvoice,
-          business: JSON.parse(savedBusiness),
+          business: {
+            ...defaultFreelancerInvoice.business,
+            ...parsedBiz,
+            contactNumber: (parsedBiz.contactNumber || '').replace(/\D/g, '').slice(0, 10) || defaultFreelancerInvoice.business.contactNumber,
+            panNumber: parsedBiz.panNumber || '',
+            udyamNumber: parsedBiz.udyamNumber || '',
+            upiPayeeName: parsedBiz.upiPayeeName || parsedBiz.businessName || '',
+          },
         };
       }
     } catch (e) {
@@ -83,7 +98,6 @@ export default function App() {
   const handleAutoFit = () => {
     if (previewContainerRef.current) {
       const containerWidth = previewContainerRef.current.clientWidth - 48; // padding
-      // A4 width in px at 96 DPI: 210mm approx 794px
       const a4WidthPx = 794;
       const calculatedScale = Math.min(1.1, Math.max(0.45, containerWidth / a4WidthPx));
       setZoomScale(Number(calculatedScale.toFixed(2)));
@@ -184,12 +198,16 @@ export default function App() {
     const totals = calculateInvoiceTotals(invoiceData);
     const paymentMode = invoiceData.meta.paymentMode || 'both';
     const isPaymentShown = invoiceData.meta.showPaymentDetails !== false && paymentMode !== 'cash';
-    const showUpi = isPaymentShown && (paymentMode === 'both' || paymentMode === 'upi');
+    const cleanUpi = (invoiceData.business.upiId || '').trim();
+    const showUpi = isPaymentShown && (paymentMode === 'both' || paymentMode === 'upi') && cleanUpi;
     const showBank = isPaymentShown && (paymentMode === 'both' || paymentMode === 'bank');
 
     let paymentInfoText = '';
-    if (showUpi && invoiceData.business.upiId) {
-      paymentInfoText += `\nPay via UPI: ${invoiceData.business.upiId}`;
+    if (showUpi) {
+      paymentInfoText += `\nPay via UPI: ${cleanUpi}`;
+      if (invoiceData.business.upiPayeeName) {
+        paymentInfoText += ` (${invoiceData.business.upiPayeeName})`;
+      }
     }
     if (showBank && invoiceData.business.accountNumber) {
       paymentInfoText += `\nBank A/C: ${invoiceData.business.accountNumber} (IFSC: ${invoiceData.business.ifscCode}, ${invoiceData.business.bankName})`;
@@ -204,6 +222,7 @@ Billed To: ${invoiceData.client.clientName || 'Customer'}
 Date: ${invoiceData.meta.invoiceDate}
 Total Amount: ₹${formatINR(totals.grandTotal)}${paymentInfoText}
 
+*Statutory Notice:* This is a Non-GST Bill / Invoice issued by an unregistered dealer / composition scheme dealer under GST rules. No tax is charged.
 Thank you for your business!`;
 
     navigator.clipboard.writeText(text).then(() => {
@@ -270,14 +289,14 @@ Thank you for your business!`;
               )}
             </button>
 
-            {/* Print / Save PDF Button */}
+            {/* Single Prominent Print / Download PDF Action Button */}
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>Print / Save as PDF</span>
+              <span>Print / Download PDF</span>
             </button>
           </div>
         </div>
@@ -347,12 +366,12 @@ Thank you for your business!`;
               activeTabMobile === 'preview' ? 'block' : 'hidden lg:block'
             }`}
           >
-            {/* Sticky Preview Controls Bar */}
+            {/* Sticky Preview Controls Bar (Cleaned up, no duplicate print button) */}
             <div className="w-full bg-white rounded-xl border border-slate-200 p-2.5 mb-4 shadow-xs flex items-center justify-between gap-3 no-print">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Live A4 Sheet
+                  Live A4 Sheet Preview
                 </span>
                 <span className="text-[11px] text-slate-400 hidden sm:inline">
                   (210mm &times; 297mm)
@@ -387,19 +406,9 @@ Thank you for your business!`;
                   title="Fit to Screen"
                 >
                   <Maximize2 className="w-3 h-3" />
-                  <span>Fit</span>
+                  <span>Fit Screen</span>
                 </button>
               </div>
-
-              {/* Quick Print Button */}
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="px-3 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-2xs transition-colors flex items-center gap-1"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print</span>
-              </button>
             </div>
 
             {/* A4 Paper Scaled Container */}
